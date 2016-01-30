@@ -37,16 +37,6 @@ local categoriesKey = catTables.categoriesKey
 local catMarkerKey = catTables.catMarkerKey
 local cacheKey = catTables.cacheKey
 
-local function isCatMarker(t, k, catMarker)
-  if type(catMarker) == 'string' then
-    return string.sub(k, 1, 1) == catMarker
-  elseif type(catMarker) == 'function' then
-    return catMarker(t, k)
-  else
-    return false
-  end
-end
-
 --- The recursive key lookup function.
 -- @TODO: Recurse in order of levels.
 -- @tparam table t The table to perform the lookup in.
@@ -102,13 +92,23 @@ local function lookup(t, field, cache, stack, stacklvl)
   print('lookup fail')
 end
 
+local function isCategory(t, k, catMarker)
+  if type(catMarker) == 'string' then
+    return string.sub(k, 1, 1) == catMarker or catMarker == ''
+  elseif type(catMarker) == 'function' then
+    return catMarker(t, k)
+  else
+    return false
+  end
+end
+
 local catMT = {
   __newindex = function(t, k, v)
     print('__newindex', t, k, v)
     local catMarker = t[catMarkerKey]
     catMarker = catMarker ~= nil and catMarker or defaultCatMarker
     -- print('k is catMarker', isCatMarker(t, k, catMarker))
-    if type(v) == 'table' and isCatMarker(t, k, catMarker) then
+    if type(v) == 'table' and isCategory(t, k, catMarker) then
       local categories = rawget(t, categoriesKey)
       if type(categories) ~= 'table' then -- This table is lazily made so if its catTable is used as a regular table, an unnecessary allocation won't be made.
         categories = {}
@@ -140,7 +140,7 @@ local catMT = {
 
 --- Creates a new catTable. Optionally accepts a table to inherit.
 -- @tparam[opt] table inheritable A table to inherit values from. A shallow copy is performed.
--- @tparam[opt='_'] ?string|function catMarker A prefix to use as an indicator for a subcategory. If a function is passed, it'll call that function, passing the table and key as arguments, to check if the key is a subcategory. Said function should return true to indicate a valid subcategory key.
+-- @tparam[opt='_'] ?string|function catMarker A prefix to use as an indicator for a subcategory. If a function is passed, it'll call that function, passing the table and key as arguments, to check if the key is a subcategory. Said function should return true to indicate a valid subcategory key. If an empty string is passed, all tables will count as subcategories.
 -- @tparam[opt=true] boolean shouldCache Determines whether or not to cache fields indexed from nested tables (categories).
 -- @treturn catTable A brand new spankin' catTable.
 -- @function create

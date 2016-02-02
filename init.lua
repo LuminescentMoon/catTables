@@ -27,7 +27,7 @@ local catTables = {
 
 local print = function(...)
   if catTables.log then
-    print(...)
+    return print(...)
   end
 end
 
@@ -102,41 +102,45 @@ local function isCategory(t, k, catMarker)
   end
 end
 
-local catMT = {
-  __newindex = function(t, k, v)
-    print('__newindex', t, k, v)
-    local catMarker = t[catMarkerKey]
-    catMarker = catMarker ~= nil and catMarker or defaultCatMarker
-    -- print('k is catMarker', isCatMarker(t, k, catMarker))
-    if type(v) == 'table' and isCategory(t, k, catMarker) then
-      local categories = rawget(t, categoriesKey)
-      if type(categories) ~= 'table' then -- This table is lazily made so if its catTable is used as a regular table, an unnecessary allocation won't be made.
-        categories = {}
-        rawset(t, categoriesKey, categories)
-      end
-      local shouldCache = type(t[cacheKey]) == 'table'
-      local category = catTables.create(v, catMarker, shouldCache)
-      print('end: created cat', category)
-      categories[k] = category
-    else
-      print('end: rawset', t, k, v)
-      rawset(t, k, v)
-    end
-  end,
-  __index = function(t, k)
-    local result = nil
+local catMT = {}
+
+local function isCatTable(t)
+  return getmetatable(t) == catMT
+end
+
+catMT.__newindex = function(t, k, v)
+  print('__newindex', t, k, v)
+  local catMarker = t[catMarkerKey]
+  catMarker = catMarker ~= nil and catMarker or defaultCatMarker
+  if type(v) == 'table' and isCategory(t, k, catMarker) then
     local categories = rawget(t, categoriesKey)
-    if type(categories) == 'table' then
-      local cache, stack = t[cacheKey]
-      result, stack = lookup(categories, k, cache)
-      if cache and stack then
-        print('caching result')
-        cache[k] = stack[#stack]
-      end
+    if type(categories) ~= 'table' then -- This table is lazily made so if its catTable is used as a regular table, an unnecessary allocation won't be made.
+      categories = {}
+      rawset(t, categoriesKey, categories)
     end
-    return result
+    local shouldCache = type(t[cacheKey]) == 'table'
+    local category = isCatTable(v) and v or catTables.create(v, catMarker, shouldCache)
+    print('end: created cat', category)
+    categories[k] = category
+  else
+    print('end: rawset', t, k, v)
+    rawset(t, k, v)
   end
-}
+end
+
+catMT.__index = function(t, k)
+  local result = nil
+  local categories = rawget(t, categoriesKey)
+  if type(categories) == 'table' then
+    local cache, stack = t[cacheKey]
+    result, stack = lookup(categories, k, cache)
+    if cache and stack then
+      print('caching result')
+      cache[k] = stack[#stack]
+    end
+  end
+  return result
+end
 
 --- Creates a new catTable. Optionally accepts a table to inherit.
 -- @tparam[opt] table inheritable A table to inherit values from. A shallow copy is performed.

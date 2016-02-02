@@ -150,7 +150,6 @@ end
 -- @function create
 function catTables.create(inheritable, catMarker, shouldCache)
   print('arg types', type(inheritable), 'catMarker : ' .. type(catMarker) .. '<' .. tostring(catMarker) .. '>', 'shouldCache : ' .. type(shouldCache) .. '<' .. tostring(shouldCache) .. '>')
-  -- print('inspection: ' .. inspect(inheritable))
   if type(shouldCache) ~= 'boolean' then -- Can't use binary operators as a ternary operator if both of the possible return values can be false.
     shouldCache = defaultShouldCache
   end
